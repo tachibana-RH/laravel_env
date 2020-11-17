@@ -1,0 +1,86 @@
+version: '3'
+
+services:
+  nginx:
+    image: nginx
+    container_name: nginx
+    networks:
+      stage_net:
+        ipv4_address: 175.30.0.3
+    ports:
+    - 40080:80
+    volumes:
+    - ./server:/var/source
+    - ./www:/var/www
+    - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+    - php
+
+  php:
+    container_name: php
+    build: ./docker/php
+    networks:
+      stage_net:
+        ipv4_address: 175.30.0.4
+    ports:
+    - 41080:8000
+    volumes:
+    - ./server:/var/www
+
+  nodejs:
+    container_name: nodejs
+    build: ./docker/nodejs
+    tty: true
+    networks:
+      stage_net:
+        ipv4_address: 175.30.0.7
+    ports:
+    - 42080:8080
+    volumes:
+    - ./server:/work
+
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: tmpdb
+      MYSQL_USER: docker
+      MYSQL_PASSWORD: docker
+      TZ: 'Asia/Tokyo'
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      stage_net:
+        ipv4_address: 175.30.0.5
+    volumes:
+    - ./docker/db/data:/var/lib/mysql
+    - ./docker/db/my.cnf:/etc/mysql/conf.d/my.cnf
+    - ./docker/db/sql:/docker-entrypoint-initdb.d
+    ports:
+    - 43306:3306
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=root
+    links:
+      - mysql
+    networks:
+      stage_net:
+        ipv4_address: 175.30.0.6
+    ports:
+      - 48080:80
+    volumes:
+      - ./docker/phpmyadmin/sessions:/sessions
+
+networks:
+  stage_net:
+    driver: bridge
+    ipam:
+     driver: default
+     config:
+       - subnet: 175.30.0.0/24
